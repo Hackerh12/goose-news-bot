@@ -1,6 +1,6 @@
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
+  useSessionAuthState,
   DisconnectReason,
   getContentType,
   jidNormalizedUser,
@@ -80,7 +80,8 @@ app.listen(port, () => {
 
 // WhatsApp connection and bot setup
 async function Goose() {
-  const { state, saveCreds } = await useMultiFileAuthState(__dirname + "./ADD-CRED-JSON");
+  // Use session-based authentication
+  const { state, saveCreds } = await useSessionAuthState('./session.data.json');
   const conn = makeWASocket({
     auth: state,
     printQRInTerminal: true,
