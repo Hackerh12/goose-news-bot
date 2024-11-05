@@ -7,14 +7,17 @@ const {
   Browsers,
 } = require('@whiskeysockets/baileys');
 
-const fs = require('fs');
+const fs = require('fs-extra');
 const pino = require('pino');
 const fetch = require('node-fetch'); // For fetching tech news from NewsAPI
 const express = require("express");
 const { News_Connect, News_Msg, Tech_newsModule, En_Tech_newsModule } = require('queen-news');
 const { OWNER, PREFIX, USER_NAME, PASSWORD, TECH_GROUP_JID } = require("./config");
 
-// NewsAPI Key (provided by the user)
+// Load environment variables
+require("dotenv").config();
+
+// NewsAPI Key
 const apiKey = 'a85a8299c40148a79850dd8e71121cee'; // Use your actual API key here
 
 // Array to store dynamic JIDs
@@ -42,12 +45,12 @@ const fetchTechNews = async (conn) => {
   } catch (error) {
     console.error('Error fetching tech news:', error);
   }
-}
+};
 
 // Periodically fetch tech news every 15 minutes
 const startTechNewsFetching = (conn) => {
   setInterval(() => fetchTechNews(conn), 900000);  // 15 minutes interval for news fetching
-}
+};
 
 // Express setup to create API endpoint
 const app = express();
@@ -80,18 +83,27 @@ app.listen(port, () => {
 
 // WhatsApp connection and bot setup
 async function Goose() {
-  // Use session-based authentication
-  const { state, saveCreds } = await useSessionAuthState('./session.data.json');
+  const sessionFilePath = './session.data.json'; // Save session in JSON file
+  let sessionId = process.env.SESSION_ID || ""; // Load session ID from .env
+  
+  const { state, saveCreds } = await useSessionAuthState(sessionFilePath);
   const conn = makeWASocket({
     auth: state,
     printQRInTerminal: true,
     logger: pino({ level: "silent" }),
     browser: Browsers.macOS("Desktop"),
-    downloadHistory: false,
-    syncFullHistory: false,
   });
 
-  conn.ev.on('creds.update', saveCreds);
+  conn.ev.on('creds.update', async (creds) => {
+    saveCreds(); // Save session in JSON file
+
+    // Save the session ID in the .env file
+    const newSessionId = JSON.stringify(creds);
+    if (newSessionId !== sessionId) {
+      sessionId = newSessionId;
+      fs.writeFileSync('.env', `SESSION_ID="${sessionId}"\n`); // Write new session ID to .env
+    }
+  });
 
   conn.ev.on("connection.update", async (update) => { 
     News_Connect(conn, Goose, update, jidNormalizedUser, Boom, DisconnectReason, USER_NAME, PASSWORD); 
